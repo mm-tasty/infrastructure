@@ -22,6 +22,7 @@ SSH keys have been generated and distributed to both servers. GitHub secrets are
 ### Example
 
 - http://example.vpn.mm
+- https://example.vpn.mm (with self-signed certificate)
 - https://example.mtib.dev
 - http://laptop.lab.vpn.mm:16001
 
