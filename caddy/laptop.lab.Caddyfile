@@ -1,6 +1,12 @@
 # Refer to the Caddy docs for more information:
 # https://caddyserver.com/docs/caddyfile
 
-http://example.vpn.mm:80 {
+http://example.vpn.mm {
     reverse_proxy localhost:16001
 }
+
+https://example.vpn.mm {
+    # use self-signed certificate
+    tls internal
+    reverse_proxy localhost:16001
+}}
