@@ -1,0 +1,22 @@
+[
+    {
+        "name": "mtib.ha.vpn.mm",
+        "type": "A",
+        "value": "100.64.0.4"
+    },
+    {
+        "name": "laptop.lab.vpn.mm",
+        "type": "A",
+        "value": "100.104.3.2"
+    },
+    {
+        "name": "example.vpn.mm",
+        "type": "A",
+        "value": "100.104.3.2"
+    },
+    {
+        "name": "mtib.dev.vpn.mm",
+        "type": "A",
+        "value": "100.104.3.1"
+    }
+]

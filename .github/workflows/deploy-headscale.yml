@@ -1,0 +1,29 @@
+name: Deploy Headscale Config
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "headscale/extra-records.json"
+  workflow_dispatch:
+
+jobs:
+  deploy-headscale:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.INFRA_PRIVATE_KEY }}" > ~/.ssh/infra
+          chmod 600 ~/.ssh/infra
+          ssh-keyscan -H mtib.dev >> ~/.ssh/known_hosts
+
+      - name: Deploy headscale config to mtib.dev
+        run: |
+          scp -i ~/.ssh/infra -o StrictHostKeyChecking=no \
+            headscale/extra-records.json \
+            root@mtib.dev:/root/containers/headscale/var/extra-records.json
