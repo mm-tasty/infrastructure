@@ -38,3 +38,8 @@ jobs:
           # Clean up staging file
           ssh -i ~/.ssh/infra -o StrictHostKeyChecking=no root@mtib.dev \
             "rm /tmp/laptop.lab.Caddyfile"
+          
+          # Reload Caddy on laptop.lab.vpn.mm
+          ssh -i ~/.ssh/infra -o StrictHostKeyChecking=no root@mtib.dev \
+            "ssh -i ~/.ssh/infra -o StrictHostKeyChecking=no root@laptop.lab.vpn.mm \
+             'systemctl reload caddy'"
