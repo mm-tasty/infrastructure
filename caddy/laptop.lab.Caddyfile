@@ -61,12 +61,18 @@ https://whoami.vpn.mm {
 }
 
 ## Copyparty
+# Using tailscale auth for identity:
+# https://github.com/9001/copyparty/tree/hovudstraum?tab=readme-ov-file#generic-header-auth
+# And returning 403 if not accessed through Tailscale (somehow)
 http://copyparty.vpn.mm {
+    import authz_tailscale
+    import ts_identity_required
     reverse_proxy localhost:3923
 }
 
 https://copyparty.vpn.mm {
-    # use self-signed certificate
-    tls internal
+    import authz_tailscale
+    import ts_identity_required
+    tls internal # use self-signed certificate
     reverse_proxy localhost:3923
 }
