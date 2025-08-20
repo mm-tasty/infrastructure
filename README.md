@@ -19,6 +19,16 @@ SSH keys have been generated and distributed to both servers. GitHub secrets are
 
 ## Services
 
+Install the certificates:
+
+- [laptop.lab.caddy.crt](./keys/laptop.lab.caddy.crt)
+
+Into your OS or browser to trust the self-signed caddt certificates and use HTTPS on `vpn.mm.` domains.
+
+Use `tls internal` on a `https://` caddy route to enable HTTPS with a certificate issued under the root CA.
+
+Additionally use `import authz_tailscale` to populate `Tailscale-User` and `Tailscale-Tailnet` headers.
+
 ### Example
 
 - http://example.vpn.mm
