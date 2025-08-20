@@ -36,6 +36,7 @@
 
 ### ROUTES ###
 
+## HTTPBIN
 http://example.vpn.mm {
     import authz_tailscale
     reverse_proxy localhost:16001

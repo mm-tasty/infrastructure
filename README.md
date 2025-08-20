@@ -26,6 +26,11 @@ SSH keys have been generated and distributed to both servers. GitHub secrets are
 - https://example.mtib.dev
 - http://laptop.lab.vpn.mm:16001
 
+### Whoami
+
+- http://whoami.vpn.mm
+- https://whoami.vpn.mm (with self-signed certificate)
+
 ## Manual Deployment
 
 Both workflows can be triggered manually via GitHub Actions UI using the "Run workflow" button.
