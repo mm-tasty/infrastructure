@@ -41,6 +41,24 @@ Additionally use `import authz_tailscale` to populate `Tailscale-User` and `Tail
 - http://whoami.vpn.mm
 - https://whoami.vpn.mm (with self-signed certificate)
 
+### Copyparty
+
+https://github.com/9001/copyparty
+
+- http://copyparty.vpn.mm
+- https://copyparty.vpn.mm (with self-signed certificate)
+- http://laptop.lab.vpn.mm:3923
+
+### Metube
+
+https://github.com/alexta69/metube
+
+Configured to download into copyparty's `/metube_downloads` folder.
+
+- http://metube.vpn.mm
+- https://metube.vpn.mm (with self-signed certificate)
+- http://laptop.lab.vpn.mm:3924
+
 ## Manual Deployment
 
 Both workflows can be triggered manually via GitHub Actions UI using the "Run workflow" button.
