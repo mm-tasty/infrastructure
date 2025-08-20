@@ -1,12 +1,48 @@
+## Caddyfile
+#
 # Refer to the Caddy docs for more information:
 # https://caddyserver.com/docs/caddyfile
+#
+# This file is sourced from https://github.com/mm-tasty/infrastructure/blob/main/caddy/laptop.lab.Caddyfile
+# Editing it anywhere else will cause it to be overwritten
+
+### SNIPPETS ###
+
+# Attach Tailscale identity headers (if present)
+# Sets Tailscale-User header to mtib|mal
+# Sets Tailscale-Tailnet header to vpn.mm.
+(authz_tailscale) {
+  forward_auth unix//run/tailscale.nginx-auth.sock {
+    uri /auth
+    header_up Remote-Addr {remote_host}
+    header_up Remote-Port {remote_port}
+    header_up Original-URI {uri}
+    copy_headers {
+      Tailscale-User
+      Tailscale-Tailnet
+    }
+  }
+}
+
+# Require Tailscale identity headers
+# Run after authz_tailscale to ensure they came from tailscale
+(ts_identity_required) {
+  @missing any {
+    not header Tailscale-User *
+    not header Tailscale-Name *
+  }
+  respond @missing "Forbidden (no Tailscale identity)" 403
+}
+
+### ROUTES ###
 
 http://example.vpn.mm {
+    import authz_tailscale
     reverse_proxy localhost:16001
 }
 
 https://example.vpn.mm {
-    # use self-signed certificate
-    tls internal
+    import authz_tailscale
+    tls internal # use self-signed certificate
     reverse_proxy localhost:16001
 }
