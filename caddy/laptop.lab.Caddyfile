@@ -46,3 +46,15 @@ https://example.vpn.mm {
     tls internal # use self-signed certificate
     reverse_proxy localhost:16001
 }
+
+## Whoami
+http://whoami.vpn.mm {
+    import authz_tailscale
+    reverse_proxy localhost:16002
+}
+
+https://whoami.vpn.mm {
+    import authz_tailscale
+    tls internal # use self-signed certificate
+    reverse_proxy localhost:16002
+}
