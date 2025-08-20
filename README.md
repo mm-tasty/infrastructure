@@ -36,7 +36,7 @@ SSH keys have been generated and distributed to both servers. GitHub secrets are
 https://github.com/9001/copyparty
 
 - http://copyparty.vpn.mm
-- https://copyparty.vpn.mm (self-signed certificate)
+- https://copyparty.vpn.mm (with self-signed certificate)
 - http://laptop.lab.vpn.mm:3923
 
 ## Manual Deployment
