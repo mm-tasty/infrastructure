@@ -59,3 +59,14 @@ https://whoami.vpn.mm {
     tls internal # use self-signed certificate
     reverse_proxy localhost:16002
 }
+
+## Copyparty
+http://copyparty.vpn.mm {
+    reverse_proxy localhost:3923
+}
+
+https://copyparty.vpn.mm {
+    # use self-signed certificate
+    tls internal
+    reverse_proxy localhost:3923
+}

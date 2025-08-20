@@ -31,6 +31,13 @@ SSH keys have been generated and distributed to both servers. GitHub secrets are
 - http://whoami.vpn.mm
 - https://whoami.vpn.mm (with self-signed certificate)
 
+### Copyparty
+
+https://github.com/9001/copyparty
+
+- http://copyparty.vpn.mm
+- http://laptop.lab.vpn.mm:3923
+
 ## Manual Deployment
 
 Both workflows can be triggered manually via GitHub Actions UI using the "Run workflow" button.
