@@ -76,3 +76,18 @@ https://copyparty.vpn.mm {
     tls internal # use self-signed certificate
     reverse_proxy localhost:3923
 }
+
+## Metube
+# yt-dlp UI downloading into copyparty's /metube_downloads folder
+http://metube.vpn.mm {
+    import authz_tailscale
+    import ts_identity_required
+    reverse_proxy localhost:3924
+}
+
+https://metube.vpn.mm {
+    import authz_tailscale
+    import ts_identity_required
+    tls internal # use self-signed certificate
+    reverse_proxy localhost:3924
+}
