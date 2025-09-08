@@ -27,9 +27,9 @@
 # Require Tailscale identity headers
 # Run after authz_tailscale to ensure they came from tailscale
 (ts_identity_required) {
-  @missing any {
-    not header Tailscale-User *
-    not header Tailscale-Name *
+  @missing not {
+    header Tailscale-User *
+    header Tailscale-Name *
   }
   respond @missing "Forbidden (no Tailscale identity)" 403
 }
