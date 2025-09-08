@@ -23,5 +23,10 @@
         "name": "mtib.dev.vpn.mm",
         "type": "A",
         "value": "100.104.3.1"
+    },
+    {
+        "name": "copyparty.vpn.mm",
+        "type": "A",
+        "value": "100.104.3.2"
     }
 ]
