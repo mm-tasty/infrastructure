@@ -29,7 +29,7 @@
 (ts_identity_required) {
   @missing not {
     header Tailscale-User *
-    header Tailscale-Name *
+    header Tailscale-Tailnet *
   }
   respond @missing "Forbidden (no Tailscale identity)" 403
 }
