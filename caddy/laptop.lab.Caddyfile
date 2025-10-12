@@ -91,3 +91,17 @@ https://metube.vpn.mm {
     tls internal # use self-signed certificate
     reverse_proxy localhost:3924
 }
+
+## Immich
+http://immich.vpn.mm {
+    import authz_tailscale
+    import ts_identity_required
+    reverse_proxy localhost:2283
+}
+
+https://immich.vpn.mm {
+    import authz_tailscale
+    import ts_identity_required
+    tls internal # use self-signed certificate
+    reverse_proxy localhost:2283
+}

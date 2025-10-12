@@ -28,5 +28,10 @@
         "name": "copyparty.vpn.mm",
         "type": "A",
         "value": "100.104.3.2"
+    },
+    {
+        "name": "immich.vpn.mm",
+        "type": "A",
+        "value": "100.104.3.2"
     }
 ]
