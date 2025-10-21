@@ -1,96 +1,125 @@
-# ZFS Storage Usage Guide
+# ZFS Storage Overview
 
-This homelab uses two ZFS pools:
-
-| Pool | Device | Purpose | Mount Root |
-|------|---------|----------|------------|
-| `hddpool` | 8TB HDD | Large, slower bulk storage | `/data-hdd` |
-| `sdpool` | 1TB SD card | Fast random read workloads | `/data-sd` |
-
-You **must create a dataset** for your project or container. Never write directly to the pool root.
+This homelab runs **Ubuntu 24** and uses **ZFS** across three separate pools for organized, reliable storage.
 
 ---
 
-## Creating a Dataset
+## Pools
 
-### Example: Project "photos"
-**HDD (bulk storage)**
+| Pool | Device | Purpose | Mount Root | Notes |
+|------|---------|----------|-------------|-------|
+| `hddpool` | 8 TB HDD | Large, slower, bulk data | `/data-hdd` | Compression on, no atime |
+| `sdpool` | 1 TB SD card | Fast random reads | `/data-sd` | For caches, metadata |
+| `nvpool` | 276 GB NVMe partition | SSD-speed workloads | *(no root mount)* | Hosts Docker datasets |
+
+All root datasets (`hddpool`, `sdpool`, `nvpool`) are **not mounted** (`canmount=off`, `mountpoint=none`) to prevent accidental writes.  
+Each project, container, or service must create its own **ZFS dataset** under the appropriate pool.
+
+---
+
+## Existing Datasets
+
+| Dataset | Mountpoint | Quota | Purpose |
+|----------|-------------|--------|----------|
+| `hddpool/immich` | `/opt/immich-ts/library` | 1 TB | Immich media library |
+| `nvpool/docker-images` | `/var/lib/docker-images` | 50 GB | Docker image storage |
+| `nvpool/docker-volumes` | `/var/lib/docker-volumes` | 100 GB | Docker named volumes |
+| *(future datasets can be added as needed)* |  |  |  |
+
+All datasets have:
+- `compression=lz4`
+- `atime=off`
+- `xattr=sa`
+- `acltype=posixacl`
+
+---
+
+## Creating a New Dataset
+
+Always create under a pool (never at the root).  
+Use **quotas** to prevent a single service from consuming the whole pool.
+
+### Example
 ```bash
-sudo zfs create -o quota=500G -o compression=lz4 -o atime=off \
-  -o mountpoint=/data-hdd/photos hddpool/photos
+# Create 500 GB dataset for backups on HDD
+sudo zfs create -o mountpoint=/srv/backups \
+  -o quota=500G -o compression=lz4 -o atime=off \
+  hddpool/backups
+
+# Or 50 GB cache on SD
+sudo zfs create -o mountpoint=/srv/cache \
+  -o quota=50G sdpool/cache
+
+# Or 20 GB highest-quality data on NVME
+sudo zfs create -o mountpoint=/srv/cache \
+  -o quota=20G nvpool/data
 ````
 
-**SD (fast reads)**
+The mountpoint directory is created automatically.
+To resize later:
 
 ```bash
-sudo zfs create -o quota=50G -o compression=lz4 -o atime=off \
-  -o mountpoint=/data-sd/cachephotos sdpool/cachephotos
+sudo zfs set quota=750G hddpool/backups
 ```
 
-### Rules
-
-* Always set a **quota** (or you will consume the entire pool).
-* Do not use the pool root directly (`/data-hdd` or `/data-sd`).
-* Use `mountpoint` for direct container binds.
+Make sure to use unique dataset names. Consult your favourite AI to figure out other ZFS flags to optimize for your usecase!
 
 ---
 
-## Monitoring
+## Common Commands
 
-### Pool status
-
-```bash
-zpool status
-```
-
-### Dataset usage
+### List pools and datasets
 
 ```bash
-zfs list
+zpool list
+zfs list -r
 ```
 
-### Pool health and errors
+### Check quotas and usage
+
+```bash
+zfs get used,avail,quota hddpool sdpool nvpool
+```
+
+### Health and errors
 
 ```bash
 zpool status -v
 ```
 
-### Check quotas and compression ratio
+### Scrub for data integrity
 
 ```bash
-zfs get used,quota,compressratio hddpool sdpool
+sudo zpool scrub hddpool
+sudo zpool scrub sdpool
+sudo zpool scrub nvpool
+```
+
+### View compression ratio
+
+```bash
+zfs get compressratio
+```
+
+### Import / export pools
+
+```bash
+sudo zpool export hddpool sdpool nvpool
+sudo zpool import
 ```
 
 ---
 
-## Maintenance
+## Notes
 
-* Scrub occasionally to verify integrity:
-
-  ```bash
-  sudo zpool scrub hddpool
-  sudo zpool scrub sdpool
-  ```
-* View progress:
-
-  ```bash
-  zpool status
-  ```
-* Export (detach) and import (reconnect) pools cleanly if drives are moved:
-
-  ```bash
-  sudo zpool export hddpool
-  sudo zpool import hddpool
-  ```
+* Do **not** use the pool itself as a mount, create datasets within the pool
+* Each dataset should have its own mountpoint and quota.
 
 ---
 
-## Summary
+### Summary
 
-* `hddpool` → large, reliable, slower.
-* `sdpool` → small, faster random reads.
-* Always create a dataset with a quota and compression.
-* Never write directly to pool roots.
-
-```
-```
+* **hddpool** → bulk, reliable storage
+* **sdpool** → small, fast random reads
+* **nvpool** → SSD pool for Docker and performance-sensitive workloads
+* Always create datasets with a **quota** and **explicit mountpoint**.
