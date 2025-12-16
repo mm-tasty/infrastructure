@@ -104,6 +104,20 @@ https://metube.vpn.mm {
     reverse_proxy localhost:3924
 }
 
+## Memos
+http://memos.vpn.mm {
+    import authz_tailscale
+    import ts_identity_required
+    reverse_proxy localhost:5001
+}
+
+https://memos.vpn.mm {
+    import authz_tailscale
+    import ts_identity_required
+    tls internal # use self-signed certificate
+    reverse_proxy localhost:5001
+}
+
 ## Immich
 http://immich.vpn.mm {
     import authz_tailscale
