@@ -60,6 +60,18 @@ https://whoami.vpn.mm {
     reverse_proxy localhost:16002
 }
 
+## Kiwix
+http://kiwix.vpn.mm {
+    import authz_tailscale
+    reverse_proxy localhost:4901
+}
+
+https://kiwix.vpn.mm {
+    import authz_tailscale
+    tls internal # use self-signed certificate
+    reverse_proxy localhost:4901
+}
+
 ## Copyparty
 # Using tailscale auth for identity:
 # https://github.com/9001/copyparty/tree/hovudstraum?tab=readme-ov-file#generic-header-auth
