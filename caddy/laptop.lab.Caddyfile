@@ -127,3 +127,15 @@ https://immich.vpn.mm {
     tls internal # use self-signed certificate
     reverse_proxy localhost:2283
 }
+
+## Transmission
+http://transmission.vpn.mm {
+    import authz_tailscale
+    reverse_proxy localhost:9091
+}
+
+https://transmission.vpn.mm {
+    import authz_tailscale
+    tls internal # use self-signed certificate
+    reverse_proxy localhost:9091
+}

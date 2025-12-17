@@ -43,5 +43,10 @@
         "name": "immich.vpn.mm",
         "type": "A",
         "value": "100.104.3.2"
+    },
+    {
+        "name": "transmission.vpn.mm",
+        "type": "A",
+        "value": "100.104.3.2"
     }
 ]
