@@ -11,12 +11,6 @@ SSH keys have been generated and distributed to both servers. GitHub secrets are
 - **Target**: `root@mtib.dev:/root/containers/headscale/var/extra-records.json`
 - **Trigger**: Changes to `headscale/extra-records.json` on main branch
 
-### Caddy Configuration
-- **File**: `caddy/laptop.lab.Caddyfile`
-- **Target**: `root@laptop.lab.vpn.mm:/etc/caddy/Caddyfile`
-- **Route**: Via mtib.dev (jump host)
-- **Trigger**: Changes to `caddy/laptop.lab.Caddyfile` on main branch
-
 ## Services
 
 Install the certificates:
