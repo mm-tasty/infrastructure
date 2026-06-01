@@ -73,5 +73,10 @@
         "name": "fu.vpn.mm",
         "type": "A",
         "value": "100.104.3.12"
+    },
+    {
+        "name": "jellyfin.mal.vpn.shared",
+        "type": "A",
+        "value": "100.104.3.19"
     }
 ]
