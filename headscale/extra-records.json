@@ -78,5 +78,15 @@
         "name": "jellyfin.mal.vpn.shared",
         "type": "A",
         "value": "100.104.3.19"
+    },
+    {
+        "name": "shared.copyparty.vpn.mm",
+        "type": "A",
+        "value": "100.104.3.19"
+    },
+    {
+        "name": "copyparty.vpn.shared",
+        "type": "A",
+        "value": "100.104.3.19"
     }
 ]
