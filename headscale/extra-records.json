@@ -88,5 +88,10 @@
         "name": "copyparty.vpn.shared",
         "type": "A",
         "value": "100.104.3.19"
+    },
+    {
+        "name": "cc.mal.ts",
+        "type": "A",
+        "value": "100.104.3.19"
     }
 ]
