@@ -80,7 +80,7 @@ Key points:
 - `network_mode: "service:myapp"` — the sidecar joins the app's network namespace so its sharedscale IP is the address on which the app's ports are reachable. Don't try to use a separate network.
 - `TS_STATE_DIR` + a named volume — required so re-creating the container doesn't burn a new node every time.
 - Name the sidecar `ts-shared-<app>` consistently so it's easy to spot when grepping compose files.
-- Use `TS_USERSPACE=false` (default already) only if you need full kernel networking. Userspace mode is fine for a pure outbound sidecar.
+- **`TS_USERSPACE=false` if the fronted service needs the peer's real source IP.** The tailscale image defaults to userspace networking, which proxies inbound peer connections via localhost — so the fronted service sees `127.0.0.1` as the source instead of e.g. `100.104.4.x`. Kernel TUN mode (`TS_USERSPACE=false` + `cap_add: [NET_ADMIN]` + `/dev/net/tun` mounted) makes the fronted service see the real tailnet IP. Required when the upstream uses source IP for logging/audit/ACL — for example copyparty's upload log, which displayed `127.0.0.1` for every sharedscale upload until this was flipped on the `sharedscale-gateway-tailsacle` sidecar. Each TS sidecar's TUN device lives in its own netns (via `network_mode: service:`), so multiple TUN-mode sidecars on the same host don't conflict.
 
 ### 2. Start it and grab the register URL
 
