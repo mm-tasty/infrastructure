@@ -68,6 +68,16 @@ Current routes on the NAS (`~/containers/ts-bridge/caddy/Caddyfile` = bridge, `~
 **Diagnosing a 403 from a sharedscale service** — first ask "which source IP am I?":
 
 1. Empty body (`Server: Caddy`, `Content-Length: 0`), same 403 with the right credentials, a wrong password, another path, another Host → the source IP is banned (mal's CrowdSec) or otherwise filtered by IP. Not an auth problem. Prove it: send byte-identical requests from two netns (`docker exec containers-sharedscale-gateway-1 ...` vs `docker exec caddy-bridge-demo ...`, use `curl` or `nc`). Different answers for identical bytes = origin-based. Check the local side is sane first (netns target, `ip route get`, source IP on `tailscale0`, `tailscale ping`), then **ask mal for `cscli decisions list` / her Caddy + CrowdSec logs** — we cannot see her side.
+   **Candidate causes for "works from `.16`, fails from `.14`" — rule them out in this order** (the 2026-10-05 incident was #1, but #2 was the first suspect and looks identical from the outside until you check):
+
+   | # | Cause | Symptom | How to tell |
+   |---|---|---|---|
+   | 1 | **CrowdSec (or similar) ban on the source IP** on mal's side, e.g. `crowdsecurity/http-generic-bf` after repeated 401s | Fast, empty-body `403` + `Server: Caddy`; other sources fine; identical bytes from two netns differ | Only mal can confirm: `cscli decisions list`, her Caddy/CrowdSec logs. Fix: `cscli decisions delete --ip <ip>` + whitelist our sharedscale sources |
+   | 2 | **Orphaned netns after a container recreate** — a joiner (`network_mode: container:<id>`/`service:<x>`) still runs but is attached to a destroyed namespace of the container it was joined to | Timeouts / connection refused / node `offline` in `sharedscale nodes list`; **never** an HTTP 403 from the far end | `~/netns-audit.sh` (`ORPHANED`), `docker inspect -f '{{.HostConfig.NetworkMode}}'` vs the target's current ID, `ip route get <ip>` + `curl -w %{local_ip}` from inside the joiner, `tailscale ping`. Fix: recreate the **joiner** |
+   | 3 | Source-IP allowlist on the far side's Caddy (`remote_ip`) | Same empty `403` as #1 | Indistinguishable from #1 without her config; ask her. Not the cause on 2026-10-05, but possible in general |
+   | 4 | Wrong source IP seen by the far side (userspace-mode tailscale proxying via `127.0.0.1`, or a MASQUERADE rewrite) | Allowed/banned decisions look random | `TS_USERSPACE=false`; check `iptables -t nat -S` in the netns |
+
+   If the far end returned an HTTP response at all, the network path and netns are working — suspect #1/#3, not #2.
 2. A `401` with `WWW-Authenticate: Basic realm="restricted"` → you got past the IP filter; you just need credentials.
    - Don't hammer it with wrong credentials while testing: repeated 401s are exactly what `http-generic-bf` bans.
 3. BusyBox `wget` can't show error bodies (`--content-on-error` is missing) — use `curl` or `nc` inside the containers.
