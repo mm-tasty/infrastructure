@@ -1,6 +1,6 @@
 ---
 name: sharedscale
-description: Use when working with sharedscale — the shared Headscale tailnet at sharedscale.mtib.dev. Covers exposing a containerized service into sharedscale via a tailscale sidecar, registering nodes with the headscale CLI, documenting services in services.yml, and setting up/maintaining a bridge from your "main" tailnet (mtib's headscale OR partner's official tailscale) into sharedscale so you can reach those services transparently.
+description: Use for anything involving sharedscale (the shared Headscale tailnet at sharedscale.mtib.dev, 100.104.4.0/24, users mtib and mal), mal's services (jellyfin, photos, mal-bridge at 100.104.4.15), *.vpn.shared / *.mal.vpn.shared / cc.mal.ts hostnames, the headscale-to-sharedscale bridge (caddy-bridge-demo, 100.104.3.19) or the mtib-sharedscale-gateway (100.104.4.16), or an empty 403 from a sharedscale service. Covers exposing a service into sharedscale (sidecar or gateway), reaching mal's services (via the gateway, never the bridge), bridging a main tailnet into sharedscale, registering nodes, services.yml, and bridge DNS records in headscale extra-records.json.
 ---
 
 # sharedscale
@@ -26,6 +26,60 @@ The headscale extra-records DNS file for mtib's *main* tailnet is `/Users/mtib/C
 - Updating `services.yml` after adding/removing/changing a service.
 
 **Don't use** for services that should live entirely in mtib's headscale tailnet (`*.vpn.mm`) — use `deploying-to-mtib-nas` for those. Sharedscale is specifically for things shared across users' tailnets.
+
+## Live topology (read this first when something is "403" or unreachable)
+
+Nodes (sharedscale, `100.104.4.0/24`):
+
+| IP | Node | Role |
+|---|---|---|
+| `.14` | `mtib-headscale-to-sharedscale` | The bridge: carries mtib's main tailnet (headscale) into sharedscale. NAS containers `ts-bridge-ts-shared-1` + `caddy-bridge-demo`. Main-tailnet side is `100.104.3.19`. |
+| `.15` | `mal-bridge` | **mal's** Caddy. Fronts mal's services (jellyfin `:8096`, photos `:8100`, ...). **Allowlists source IPs.** |
+| `.16` | `mtib-sharedscale-gateway` | mtib's Caddy gateway on the NAS. Both the **inbound** door for mal into mtib's stuff and the **allowed egress** towards mal's services. |
+| `.18` | audiobookshelf | Direct sidecar. |
+| `.20` | `mtib-startpage-relay` | Hetzner relay pair for the startpage status probes. |
+
+### Direction matters: the gateway is also the way OUT to mal
+
+The gateway has two jobs. Don't mix them up:
+
+- **Inbound (mal → mtib)**: gateway `:83` copyparty/PocketBase (injects `Tailscale-User: mal`), `:84` TurboFieldfare via the ai-relay. mal dials `100.104.4.16:<port>`.
+- **Outbound (mtib → mal)**: gateway `:85` photos, `:86` jellyfin. These exist because **mal-bridge (`.15`) only accepts connections from allowlisted source IPs** — the gateway `.16` is on that list, the bridge `.14` is not (it stopped being accepted around 2026-10-01..05; jellyfin streamed fine through `.14` before that). Anything not on the list gets an **empty-body 403 from Caddy** regardless of credentials, Host header or path.
+
+So: **a bridge (`.14`) must never `reverse_proxy` straight to `100.104.4.15`. Point it at the gateway's outbound port**, and let the gateway dial `.15`:
+
+```mermaid
+flowchart LR
+    D["main-tailnet device"] --> B["bridge caddy .14<br/>(caddy-bridge-demo)"]
+    B -->|"photos: inject Basic<br/>jellyfin: as-is"| G["gateway caddy .16<br/>:85 photos / :86 jellyfin"]
+    G -->|"allowed source .16"| M["mal-bridge .15<br/>:8100 / :8096"]
+```
+
+Current routes on the NAS (`~/containers/ts-bridge/caddy/Caddyfile` = bridge, `~/containers/sharedscale-gateway/Caddyfile` = gateway):
+
+| Hostname (main tailnet → `100.104.3.19`) | Bridge forwards to | Gateway forwards to |
+|---|---|---|
+| `jellyfin.mal.vpn.shared` | `100.104.4.16:86` | `100.104.4.15:8096` |
+| `photos.mal.vpn.shared` | `100.104.4.16:85` + injected `Authorization: Basic` | `100.104.4.15:8100` |
+| `copyparty.vpn.shared`, `cc.mal.ts` | `100.104.4.16:83` | local copyparty |
+
+**Credential injection**: photos is behind HTTP Basic (realm `restricted`, user `boo`). The *bridge* block sets `header_up Authorization "Basic <b64>"`, so any VPN member gets in with no prompt (and a client-supplied login is overridden). The *gateway* `:85` block deliberately does NOT inject, so hitting `100.104.4.16:85` directly still gives 401. The password lives only in that bridge Caddyfile (NAS, world-writable, base64) — never in `services.yml`, git, or a skill. Ask mal for it if it must be re-created.
+
+**Diagnosing a 403 from a sharedscale service** — first ask "which source IP am I?":
+
+1. Empty body, same 403 with the right credentials, a wrong password, another path, another Host → source-IP allowlist. Not an auth problem. Re-test from a source that is allowed (`docker exec containers-sharedscale-gateway-1 curl ...` or `ssh mtib-nas` + a container that shares the gateway netns). If `.16` works and `.14` doesn't, fix by routing via the gateway as above.
+2. A `401` with `WWW-Authenticate: Basic realm="restricted"` → the allowlist let you in and you just need credentials.
+3. BusyBox `wget` can't show error bodies (`--content-on-error` is missing) — use `curl` or `nc` inside the containers.
+
+**Adding a new mal service reachable from mtib's side** (checklist):
+
+1. Gateway Caddyfile: append a `:8N { reverse_proxy 100.104.4.15:<port> }` block (next free port after `:86`), then `docker exec containers-sharedscale-gateway-1 caddy reload --config /etc/caddy/Caddyfile`.
+2. Bridge Caddyfile: add `<name>.mal.vpn.shared:80 { reverse_proxy 100.104.4.16:8N }` (plus `header_up Authorization` if the upstream wants Basic and everybody should get in), reload `caddy-bridge-demo`.
+3. DNS: add `<name>.mal.vpn.shared → 100.104.3.19` in `extra-records.json` **through a PR** (see "DNS records" below).
+4. `services.yml` entry in the sharedscale repo (via PR, no secrets).
+5. `~/netns-audit.sh` on the NAS if anything was *recreated* rather than reloaded.
+
+**Edit both NAS Caddyfiles in place.** They are single-file bind mounts: `sed -i` (or any write-new-then-rename) swaps the inode and the container keeps the old content. Use `cat > file`, `tee`, or `>>`, take a `cp` backup first, and run `caddy validate` before `caddy reload`.
 
 ## Prerequisites (one-time, per admin machine)
 
@@ -414,7 +468,7 @@ example.vpn.shared {
 }
 ```
 
-For mtib's headscale, add the DNS record by appending to `/Users/mtib/Code/infrastructure/headscale/extra-records.json`:
+For mtib's headscale, add a DNS record (see "DNS records" below for the safe workflow — don't just edit the main checkout):
 
 ```json
 {
@@ -424,13 +478,31 @@ For mtib's headscale, add the DNS record by appending to `/Users/mtib/Code/infra
 }
 ```
 
-Then commit, `git fetch origin && git rebase origin/main && git push origin main`. Headscale picks the records up shortly.
-
 For official tailscale, use the Admin Console → DNS → Split DNS or Nameservers to add the same mapping (tailscale doesn't accept an `extra-records.json`).
 
 **Regenerating the Caddyfile from `services.yml`** is the maintainable path once you have more than a couple of entries — the file lists every `preferred_dns` + `ip` + `port` for you. A small script that templates one `<dns> { reverse_proxy <ip>:<port> }` block per entry is enough; commit it alongside the bridge compose so the bridge config stays in sync with the source-of-truth services list.
 
 If a service does its own TLS (`certificate_base64` populated), the bridge caddy should proxy with `reverse_proxy https://<ip>:<port>` and either `tls_trust_pool` the cert or `tls_insecure_skip_verify` (acceptable here because the bridge → service traffic is already inside sharedscale's WireGuard mesh).
+
+### DNS records (headscale `extra-records.json`) — repo first, never the server
+
+The live file is `/root/containers/headscale/var/extra-records.json` on hetzner (container `containers-headscale-1`, `extra_records_path: /var/lib/headscale/extra-records.json`). The **source of truth is the repo** `mm-tasty/infrastructure`, file `headscale/extra-records.json`. The GitHub Action `.github/workflows/deploy-headscale.yml` `scp`s that file over the live one on every push to `main` that touches it — so **a hand edit on hetzner is silently reverted by the next DNS deploy by anyone**. (This happened: on 2026-09-20 `start.vpn.mm` was added and `memos.vpn.mm` removed on the server only; the repo drifted and a later PR would have reverted both.)
+
+Workflow:
+
+1. **Diff live against the repo before editing**, and reconcile any drift into the repo first (live is usually right):
+   ```sh
+   ssh hetzner 'cat /root/containers/headscale/var/extra-records.json' > live.json
+   git -C ~/Code/infrastructure fetch origin
+   # compare by (name,type,value), not by whitespace:
+   diff <(git -C ~/Code/infrastructure show origin/main:headscale/extra-records.json | jq -S 'map([.name,.type,.value])|sort') \
+        <(jq -S 'map([.name,.type,.value])|sort' live.json)
+   ```
+2. Work in a worktree (`git worktree add -b feat/<slug> ~/Code/worktrees/infrastructure-feat-<slug> origin/main`), edit there, open a PR. **Merging the PR is what deploys** — leave that to the user.
+3. Keep the file's 4-space JSON style, no duplicate names, and check `jq length`.
+4. After the merge: `dig +short <name> @100.100.100.100` or just `curl` the new name from a main-tailnet device; confirm that unrelated records (`start.vpn.mm`, ...) are still present.
+
+Don't use the "commit straight to `main`" habit from `~/Code/infrastructure` for this file, and never `scp` to hetzner directly. Other places that need the same warning: `deploying-to-mtib-nas` step 6, `deploying-to-hetzner`.
 
 ### Bridge maintenance
 
