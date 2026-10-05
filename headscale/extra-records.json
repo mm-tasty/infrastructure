@@ -90,6 +90,11 @@
         "value": "100.104.3.19"
     },
     {
+        "name": "photos.mal.vpn.shared",
+        "type": "A",
+        "value": "100.104.3.19"
+    },
+    {
         "name": "copyparty.vpn.shared",
         "type": "A",
         "value": "100.104.3.19"
