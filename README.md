@@ -11,6 +11,11 @@ SSH keys have been generated and distributed to both servers. GitHub secrets are
 - **Target**: `root@mtib.dev:/root/containers/headscale/var/extra-records.json`
 - **Trigger**: Changes to `headscale/extra-records.json` on main branch
 
+> **Edit the repo, never the file on the server.** The workflow `scp`s the repo file over
+> `/root/containers/headscale/var/extra-records.json` on every push to main that touches it, so any
+> hand edit on hetzner that is not also in this repo is silently reverted by the next deploy.
+> Before editing, diff the live file against `origin/main`.
+
 ## Services
 
 Install the certificates:

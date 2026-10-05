@@ -25,11 +25,6 @@
         "value": "100.104.3.12"
     },
     {
-        "name": "memos.vpn.mm",
-        "type": "A",
-        "value": "100.104.3.12"
-    },
-    {
         "name": "mtib.dev.vpn.mm",
         "type": "A",
         "value": "100.104.3.1"
@@ -90,6 +85,11 @@
         "value": "100.104.3.19"
     },
     {
+        "name": "photos.mal.vpn.shared",
+        "type": "A",
+        "value": "100.104.3.19"
+    },
+    {
         "name": "copyparty.vpn.shared",
         "type": "A",
         "value": "100.104.3.19"
@@ -118,5 +118,10 @@
         "name": "books.vpn.mm",
         "type": "A",
         "value": "100.104.3.12"
+    },
+    {
+        "name": "start.vpn.mm",
+        "type": "A",
+        "value": "100.104.3.8"
     }
 ]
