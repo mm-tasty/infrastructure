@@ -1,6 +1,6 @@
 ---
 name: sharedscale
-description: Use for anything involving sharedscale (the shared Headscale tailnet at sharedscale.mtib.dev, 100.104.4.0/24, users mtib and mal), mal's services (jellyfin, photos, mal-bridge at 100.104.4.15), *.vpn.shared / *.mal.vpn.shared / cc.mal.ts hostnames, the headscale-to-sharedscale bridge (caddy-bridge-demo, 100.104.3.19) or the mtib-sharedscale-gateway (100.104.4.16), or an empty 403 from a sharedscale service. Covers exposing a service into sharedscale (sidecar or gateway), reaching mal's services (via the gateway, never the bridge), bridging a main tailnet into sharedscale, registering nodes, services.yml, and bridge DNS records in headscale extra-records.json.
+description: Use for anything involving sharedscale (the shared Headscale tailnet at sharedscale.mtib.dev, 100.104.4.0/24, users mtib and mal), mal's services (jellyfin, photos, mal-bridge at 100.104.4.15), *.vpn.shared / *.mal.vpn.shared / cc.mal.ts hostnames, the headscale-to-sharedscale bridge (caddy-bridge-demo, 100.104.3.19) or the mtib-sharedscale-gateway (100.104.4.16), or an empty 403 from a sharedscale service. Covers exposing a service into sharedscale (sidecar or gateway), reaching mal's services (via the gateway while the bridge .14 is CrowdSec-banned on mal's side), bridging a main tailnet into sharedscale, registering nodes, services.yml, and bridge DNS records in headscale extra-records.json.
 ---
 
 # sharedscale
@@ -34,7 +34,7 @@ Nodes (sharedscale, `100.104.4.0/24`):
 | IP | Node | Role |
 |---|---|---|
 | `.14` | `mtib-headscale-to-sharedscale` | The bridge: carries mtib's main tailnet (headscale) into sharedscale. NAS containers `ts-bridge-ts-shared-1` + `caddy-bridge-demo`. Main-tailnet side is `100.104.3.19`. |
-| `.15` | `mal-bridge` | **mal's** Caddy. Fronts mal's services (jellyfin `:8096`, photos `:8100`, ...). **Allowlists source IPs.** |
+| `.15` | `mal-bridge` | **mal's** Caddy. Fronts mal's services (jellyfin `:8096`, photos `:8100`, ...). **Runs CrowdSec** — it bans source IPs (see "Diagnosing a 403"). |
 | `.16` | `mtib-sharedscale-gateway` | mtib's Caddy gateway on the NAS. Both the **inbound** door for mal into mtib's stuff and the **allowed egress** towards mal's services. |
 | `.18` | audiobookshelf | Direct sidecar. |
 | `.20` | `mtib-startpage-relay` | Hetzner relay pair for the startpage status probes. |
@@ -44,15 +44,15 @@ Nodes (sharedscale, `100.104.4.0/24`):
 The gateway has two jobs. Don't mix them up:
 
 - **Inbound (mal → mtib)**: gateway `:83` copyparty/PocketBase (injects `Tailscale-User: mal`), `:84` TurboFieldfare via the ai-relay. mal dials `100.104.4.16:<port>`.
-- **Outbound (mtib → mal)**: gateway `:85` photos, `:86` jellyfin. These exist because **mal-bridge (`.15`) only accepts connections from allowlisted source IPs** — the gateway `.16` is on that list, the bridge `.14` is not (it stopped being accepted around 2026-10-01..05; jellyfin streamed fine through `.14` before that). Anything not on the list gets an **empty-body 403 from Caddy** regardless of credentials, Host header or path.
+- **Outbound (mtib → mal)**: gateway `:85` photos, `:86` jellyfin. These exist because **mal-bridge's CrowdSec banned the bridge source `.14`** (scenario `crowdsecurity/http-generic-bf`, found 2026-10-05; jellyfin streamed fine through `.14` until ~2026-10-01). A banned source gets an **empty-body 403 from Caddy** regardless of credentials, Host header or path. It is a *ban*, not a hand-kept allowlist: `.16` and `.20` were never banned. (We first misread it as an allowlist — a wrong theory that survived several tests because identical requests from `.14` and `.16` really did differ.)
 
-So: **a bridge (`.14`) must never `reverse_proxy` straight to `100.104.4.15`. Point it at the gateway's outbound port**, and let the gateway dial `.15`:
+So: **point the bridge (`.14`) at the gateway's outbound port instead of straight at `100.104.4.15`**, and let the gateway dial `.15`. That is the workaround while `.14` stays banned, and it keeps working if it is cleared. To use `.14` directly again, mal must clear the decision and ideally whitelist the sharedscale bridge/gateway/relay sources in CrowdSec so repeated 401s from our proxies can't re-ban them:
 
 ```mermaid
 flowchart LR
     D["main-tailnet device"] --> B["bridge caddy .14<br/>(caddy-bridge-demo)"]
     B -->|"photos: inject Basic<br/>jellyfin: as-is"| G["gateway caddy .16<br/>:85 photos / :86 jellyfin"]
-    G -->|"allowed source .16"| M["mal-bridge .15<br/>:8100 / :8096"]
+    G -->|"source .16 (not banned)"| M["mal-bridge .15<br/>:8100 / :8096"]
 ```
 
 Current routes on the NAS (`~/containers/ts-bridge/caddy/Caddyfile` = bridge, `~/containers/sharedscale-gateway/Caddyfile` = gateway):
@@ -67,8 +67,9 @@ Current routes on the NAS (`~/containers/ts-bridge/caddy/Caddyfile` = bridge, `~
 
 **Diagnosing a 403 from a sharedscale service** — first ask "which source IP am I?":
 
-1. Empty body, same 403 with the right credentials, a wrong password, another path, another Host → source-IP allowlist. Not an auth problem. Re-test from a source that is allowed (`docker exec containers-sharedscale-gateway-1 curl ...` or `ssh mtib-nas` + a container that shares the gateway netns). If `.16` works and `.14` doesn't, fix by routing via the gateway as above.
-2. A `401` with `WWW-Authenticate: Basic realm="restricted"` → the allowlist let you in and you just need credentials.
+1. Empty body (`Server: Caddy`, `Content-Length: 0`), same 403 with the right credentials, a wrong password, another path, another Host → the source IP is banned (mal's CrowdSec) or otherwise filtered by IP. Not an auth problem. Prove it: send byte-identical requests from two netns (`docker exec containers-sharedscale-gateway-1 ...` vs `docker exec caddy-bridge-demo ...`, use `curl` or `nc`). Different answers for identical bytes = origin-based. Check the local side is sane first (netns target, `ip route get`, source IP on `tailscale0`, `tailscale ping`), then **ask mal for `cscli decisions list` / her Caddy + CrowdSec logs** — we cannot see her side.
+2. A `401` with `WWW-Authenticate: Basic realm="restricted"` → you got past the IP filter; you just need credentials.
+   - Don't hammer it with wrong credentials while testing: repeated 401s are exactly what `http-generic-bf` bans.
 3. BusyBox `wget` can't show error bodies (`--content-on-error` is missing) — use `curl` or `nc` inside the containers.
 
 **Adding a new mal service reachable from mtib's side** (checklist):
