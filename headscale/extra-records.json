@@ -60,11 +60,6 @@
         "value": "100.104.3.12"
     },
     {
-        "name": "todos.vpn.mm",
-        "type": "A",
-        "value": "100.104.3.12"
-    },
-    {
         "name": "registry.vpn.mm",
         "type": "A",
         "value": "100.104.3.12"
