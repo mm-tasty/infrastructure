@@ -148,5 +148,10 @@
         "name": "embed.vpn.mm",
         "type": "A",
         "value": "100.104.3.13"
+    },
+    {
+        "name": "search.vpn.mm",
+        "type": "A",
+        "value": "100.104.3.12"
     }
 ]
